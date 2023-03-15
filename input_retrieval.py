@@ -34,8 +34,8 @@ def parseCommandLineArguments():
 	LABELS = open(labelsPath).read().strip().split("\n")
 	
 	# derive the paths to the YOLO weights and model configuration
-	weightsPath = os.path.sep.join([args["yolo"], "yolov3.weights"])
-	configPath = os.path.sep.join([args["yolo"], "yolov3.cfg"])
+	weightsPath = os.path.sep.join([args["yolo"], "yolov7-tiny.weights"])
+	configPath = os.path.sep.join([args["yolo"], "yolov7-tiny.cfg"])
 	
 	inputVideoPath = args["input"]
 	outputVideoPath = args["output"]
