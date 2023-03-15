@@ -20,7 +20,7 @@ You may also notice that the vehicles will initially be detected and the counter
 * The pre-trained yolov3 weight file should be downloaded by following these steps:
 ```
 cd yolo-coco
-wget https://pjreddie.com/media/files/yolov3.weights
+wget https://github.com/AlexeyAB/darknet/releases/download/yolov4/yolov7-tiny.weights
 ``` 
 
 ## Dependencies for using CPU for computations
@@ -76,7 +76,7 @@ python3 yolo_video.py --input inputVideos/highway.mp4 --output outputVideos/high
 ```
 
 ## Implementation details
-* The detections are performed on each frame by using YOLOv3 object detection algorithm and displayed on the screen with bounding boxes.
+* The detections are performed on each frame by using YOLOv7 object detection algorithm and displayed on the screen with bounding boxes.
 * The detections are filtered to keep all vehicles like motorcycle, bus, car, cycle, truck, train. The reason why trains are also counted is because sometimes, the longer vehicles like a bus, is detected as a train; therefore, the trains are also taken into account.
 * The center of each box is taken as a reference point (denoted by a green dot when performing the detections) when track the vehicles.   
 * Also, in order to track the vehicles, the shortest distance to the center point is calculated for each vehicle in the last 10 frames. 
