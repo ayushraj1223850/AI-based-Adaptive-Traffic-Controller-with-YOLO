@@ -22,7 +22,7 @@ def parseCommandLineArguments():
 		help="base path to YOLO directory")
 	ap.add_argument("-c", "--confidence", type=float, default=0.5,
 		help="minimum probability to filter weak detections")
-	ap.add_argument("-t", "--threshold", type=float, default=0.3,
+	ap.add_argument("-t", "--threshold", type=float, default=0.2,
 		help="threshold when applying non-maxima suppression")
 	ap.add_argument("-u", "--use-gpu", type=bool, default=False,
 	help="boolean indicating if CUDA GPU should be used")
