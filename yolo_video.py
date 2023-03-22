@@ -1,10 +1,16 @@
 # import the necessary packages
 import numpy as np
 import imutils
+from imutils.video import FileVideoStream
+from imutils.video import FPS
 import time
 from scipy import spatial
 import cv2
 from input_retrieval import *
+import pafy
+from threading import Thread
+import sys
+from queue import Queue
 
 #All these classes will be counted as 'vehicles'
 list_of_vehicles = ["bicycle","car","motorbike","bus","truck", "train"]
@@ -55,7 +61,7 @@ def boxAndLineOverlap(x_mid_point, y_mid_point, line_coordinates):
 def displayFPS(start_time, num_frames):
 	current_time = int(time.time())
 	if(current_time > start_time):
-		os.system('clear') # Equivalent of CTRL+L on the terminal
+		#os.system('clear') # Equivalent of CTRL+L on the terminal
 		print("FPS:", num_frames)
 		num_frames = 0
 		start_time = current_time
@@ -170,11 +176,23 @@ if USE_GPU:
 	net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
 
 ln = net.getLayerNames()
+
 ln = [ln[i - 1] for i in net.getUnconnectedOutLayers()]
 
 # initialize the video stream, pointer to output video file, and
 # frame dimensions
+# video = pafy.new(inputVideoPath)
+# best = video.getbest(preftype="mp4")
+# url = "https://www.youtube.com/watch?v=5_XSYlAfJZM"
+# video = pafy.new(url)
+# best = video.getbest(preftype="mp4")
+# videoStream = cv2.VideoCapture(best.url)
+
+
 videoStream = cv2.VideoCapture(inputVideoPath)
+fvs = FileVideoStream(inputVideoPath).start()
+fps = FPS().start()
+time.sleep(1.0)
 video_width = int(videoStream.get(cv2.CAP_PROP_FRAME_WIDTH))
 video_height = int(videoStream.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
@@ -191,102 +209,119 @@ num_frames, vehicle_count = 0, 0
 writer = initializeVideoWriter(video_width, video_height, videoStream)
 start_time = int(time.time())
 # loop over frames from the video file stream
-while True:
-	print("================NEW FRAME================")
-	num_frames+= 1
-	print("FRAME:\t", num_frames)
-	# Initialization for each iteration
-	boxes, confidences, classIDs = [], [], [] 
-	vehicle_crossed_line_flag = False 
+try:
+# while True:
+	while fvs.more():
+		print("================NEW FRAME================")
+		num_frames+= 1
+		print("FRAME:\t", num_frames)
+		# Initialization for each iteration
+		boxes, confidences, classIDs = [], [], [] 
+		vehicle_crossed_line_flag = False 
 
-	#Calculating fps each second
-	start_time, num_frames = displayFPS(start_time, num_frames)
-	# read the next frame from the file
-	(grabbed, frame) = videoStream.read()
+		#Calculating fps each second
+		start_time, num_frames = displayFPS(start_time, num_frames)
+		# read the next frame from the file
+		(grabbed, framesaa) = videoStream.read()
+		frame = ''
+		for i in range(2):
+			if(fvs.more()):
+				frame = fvs.read()
+			else:
+				break
+		# frame = fvs.read()
+		# if the frame was not grabbed, then we have reached the end of the stream
+		if not grabbed:
+			break
 
-	# if the frame was not grabbed, then we have reached the end of the stream
-	if not grabbed:
-		break
+		# construct a blob from the input frame and then perform a forward
+		# pass of the YOLO object detector, giving us our bounding boxes
+		# and associated probabilities
+		blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (inputWidth, inputHeight),
+			swapRB=True, crop=False)
+		net.setInput(blob)
+		start = time.time()
+		layerOutputs = net.forward(ln)
+		end = time.time()
 
-	# construct a blob from the input frame and then perform a forward
-	# pass of the YOLO object detector, giving us our bounding boxes
-	# and associated probabilities
-	blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (inputWidth, inputHeight),
-		swapRB=True, crop=False)
-	net.setInput(blob)
-	start = time.time()
-	layerOutputs = net.forward(ln)
-	end = time.time()
+		# loop over each of the layer outputs
+		for output in layerOutputs:
+			# loop over each of the detections
+			for i, detection in enumerate(output):
+				# extract the class ID and confidence (i.e., probability)
+				# of the current object detection
+				scores = detection[5:]
+				classID = np.argmax(scores)
+				confidence = scores[classID]
 
-	# loop over each of the layer outputs
-	for output in layerOutputs:
-		# loop over each of the detections
-		for i, detection in enumerate(output):
-			# extract the class ID and confidence (i.e., probability)
-			# of the current object detection
-			scores = detection[5:]
-			classID = np.argmax(scores)
-			confidence = scores[classID]
+				# filter out weak predictions by ensuring the detected
+				# probability is greater than the minimum probability
+				if confidence > preDefinedConfidence:
+					# scale the bounding box coordinates back relative to
+					# the size of the image, keeping in mind that YOLO
+					# actually returns the center (x, y)-coordinates of
+					# the bounding box followed by the boxes' width and
+					# height
+					box = detection[0:4] * np.array([video_width, video_height, video_width, video_height])
+					(centerX, centerY, width, height) = box.astype("int")
 
-			# filter out weak predictions by ensuring the detected
-			# probability is greater than the minimum probability
-			if confidence > preDefinedConfidence:
-				# scale the bounding box coordinates back relative to
-				# the size of the image, keeping in mind that YOLO
-				# actually returns the center (x, y)-coordinates of
-				# the bounding box followed by the boxes' width and
-				# height
-				box = detection[0:4] * np.array([video_width, video_height, video_width, video_height])
-				(centerX, centerY, width, height) = box.astype("int")
+					# use the center (x, y)-coordinates to derive the top
+					# and and left corner of the bounding box
+					x = int(centerX - (width / 2))
+					y = int(centerY - (height / 2))
+								
+					#Printing the info of the detection
+					#print('\nName:\t', LABELS[classID],
+						#'\t|\tBOX:\t', x,y)
 
-				# use the center (x, y)-coordinates to derive the top
-				# and and left corner of the bounding box
-				x = int(centerX - (width / 2))
-				y = int(centerY - (height / 2))
-                            
-				#Printing the info of the detection
-				#print('\nName:\t', LABELS[classID],
-					#'\t|\tBOX:\t', x,y)
+					# update our list of bounding box coordinates,
+					# confidences, and class IDs
+					boxes.append([x, y, int(width), int(height)])
+					confidences.append(float(confidence))
+					classIDs.append(classID)
 
-				# update our list of bounding box coordinates,
-				# confidences, and class IDs
-				boxes.append([x, y, int(width), int(height)])
-				confidences.append(float(confidence))
-				classIDs.append(classID)
+		# # Changing line color to green if a vehicle in the frame has crossed the line 
+		# if vehicle_crossed_line_flag:
+		# 	cv2.line(frame, (x1_line, y1_line), (x2_line, y2_line), (0, 0xFF, 0), 2)
+		# # Changing line color to red if a vehicle in the frame has not crossed the line 
+		# else:
+		# 	cv2.line(frame, (x1_line, y1_line), (x2_line, y2_line), (0, 0, 0xFF), 2)
 
-	# # Changing line color to green if a vehicle in the frame has crossed the line 
-	# if vehicle_crossed_line_flag:
-	# 	cv2.line(frame, (x1_line, y1_line), (x2_line, y2_line), (0, 0xFF, 0), 2)
-	# # Changing line color to red if a vehicle in the frame has not crossed the line 
-	# else:
-	# 	cv2.line(frame, (x1_line, y1_line), (x2_line, y2_line), (0, 0, 0xFF), 2)
+		# apply non-maxima suppression to suppress weak, overlapping
+		# bounding boxes
+		idxs = cv2.dnn.NMSBoxes(boxes, confidences, preDefinedConfidence,
+			preDefinedThreshold)
 
-	# apply non-maxima suppression to suppress weak, overlapping
-	# bounding boxes
-	idxs = cv2.dnn.NMSBoxes(boxes, confidences, preDefinedConfidence,
-		preDefinedThreshold)
+		# Draw detection box 
+		drawDetectionBoxes(idxs, boxes, classIDs, confidences, frame)
 
-	# Draw detection box 
-	drawDetectionBoxes(idxs, boxes, classIDs, confidences, frame)
+		vehicle_count, current_detections = count_vehicles(idxs, boxes, classIDs, vehicle_count, previous_frame_detections, frame)
 
-	vehicle_count, current_detections = count_vehicles(idxs, boxes, classIDs, vehicle_count, previous_frame_detections, frame)
+		# Display Vehicle Count if a vehicle has passed the line 
+		displayVehicleCount(frame, vehicle_count)
+		cv2.putText(frame, "Queue Size: {}".format(fvs.Q.qsize()),
+			(10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+		# write the output frame to disk
+		writer.write(frame)
 
-	# Display Vehicle Count if a vehicle has passed the line 
-	displayVehicleCount(frame, vehicle_count)
-
-    # write the output frame to disk
-	writer.write(frame)
-
-	cv2.imshow('Frame', frame)
-	if cv2.waitKey(1) & 0xFF == ord('q'):
-		break	
-	
-	# Updating with the current frame detections
-	previous_frame_detections.pop(0) #Removing the first frame from the list
-	# previous_frame_detections.append(spatial.KDTree(current_detections))
-	previous_frame_detections.append(current_detections)
-
-# release the file pointers
-print("[INFO] cleaning up...")
-writer.release()
-videoStream.release()
+		cv2.imshow('Frame', frame)
+		if cv2.waitKey(1) & 0xFF == ord('q'):
+			break	
+		fps.update()
+		# Updating with the current frame detections
+		previous_frame_detections.pop(0) #Removing the first frame from the list
+		# previous_frame_detections.append(spatial.KDTree(current_detections))
+		previous_frame_detections.append(current_detections)
+except Exception as error:
+	print(error)
+finally:
+	fps.stop()
+	print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
+	print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
+	# do a bit of cleanup
+	cv2.destroyAllWindows()
+	fvs.stop()
+	# release the file pointers
+	print("[INFO] cleaning up...")
+	writer.release()
+	videoStream.release()
