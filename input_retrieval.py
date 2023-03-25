@@ -14,7 +14,7 @@ import os
 def parseCommandLineArguments():
 	# construct the argument parse and parse the arguments
 	ap = argparse.ArgumentParser()
-	ap.add_argument("-i", "--input", required=True,
+	ap.add_argument("-i", "--input",
 		help="path to input video")
 	ap.add_argument("-o", "--output", required=True,
 		help="path to output video")
@@ -22,6 +22,7 @@ def parseCommandLineArguments():
 		help="base path to YOLO directory")
 	ap.add_argument("-c", "--confidence", type=float, default=0.5,
 		help="minimum probability to filter weak detections")
+	ap.add_argument("-iall", "--inputall",nargs='+',type=str, help="input all 4 files ")
 	ap.add_argument("-t", "--threshold", type=float, default=0.2,
 		help="threshold when applying non-maxima suppression")
 	ap.add_argument("-u", "--use-gpu", type=bool, default=False,
@@ -38,9 +39,10 @@ def parseCommandLineArguments():
 	configPath = os.path.sep.join([args["yolo"], "yolov7-tiny.cfg"])
 	
 	inputVideoPath = args["input"]
+	inputVideoPathList = args["inputall"]
 	outputVideoPath = args["output"]
 	confidence = args["confidence"]
 	threshold = args["threshold"]
 	USE_GPU = args["use_gpu"]
 
-	return LABELS, weightsPath, configPath, inputVideoPath, outputVideoPath, confidence, threshold, USE_GPU
+	return LABELS, weightsPath, configPath, inputVideoPath, outputVideoPath, confidence, threshold, USE_GPU, inputVideoPathList

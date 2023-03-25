@@ -11,16 +11,19 @@ import pafy
 from threading import Thread
 import sys
 from queue import Queue
+import multiprocessing
+
+from atcs import traffic_control
 
 #All these classes will be counted as 'vehicles'
-list_of_vehicles = ["bicycle","car","motorbike","bus","truck", "train"]
+list_of_vehicles = ["bicycle","car","motorbike","bus","truck"]
 # Setting the threshold for the number of frames to search a vehicle for
-FRAMES_BEFORE_CURRENT = 10  
+FRAMES_BEFORE_CURRENT = 5
 inputWidth, inputHeight = 416, 416
 
 #Parse command line arguments and extract the values required
 LABELS, weightsPath, configPath, inputVideoPath, outputVideoPath,\
-	preDefinedConfidence, preDefinedThreshold, USE_GPU= parseCommandLineArguments()
+	preDefinedConfidence, preDefinedThreshold, USE_GPU, inputVideoPathList= parseCommandLineArguments()
 
 # Initialize a list of colors to represent each possible class label
 np.random.seed(42)
@@ -29,14 +32,14 @@ COLORS = np.random.randint(0, 255, size=(len(LABELS), 3),
 # PURPOSE: Displays the vehicle count on the top-left corner of the frame
 # PARAMETERS: Frame on which the count is displayed, the count number of vehicles 
 # RETURN: N/A
-def displayVehicleCount(frame, vehicle_count):
+def displayVehicleCount(frame, vehicle_count,lane):
 	cv2.putText(
 		frame, #Image
-		'Detected Vehicles: ' + str(vehicle_count), #Label
+		'Detected Vehicles in Lane' +str(lane+1)+"::  =  "  + str(vehicle_count), #Label
 		(20, 20), #Position
 		cv2.FONT_HERSHEY_SIMPLEX, #Font
-		0.8, #Size
-		(0, 0xFF, 0), #Color
+		0.75, #Size
+		(0, 0, 0), #Color
 		2, #Thickness
 		cv2.FONT_HERSHEY_COMPLEX_SMALL,
 		)
@@ -62,7 +65,7 @@ def displayFPS(start_time, num_frames):
 	current_time = int(time.time())
 	if(current_time > start_time):
 		#os.system('clear') # Equivalent of CTRL+L on the terminal
-		print("FPS:", num_frames)
+		# print("FPS:", num_frames)
 		num_frames = 0
 		start_time = current_time
 	return start_time, num_frames
@@ -145,7 +148,8 @@ def count_vehicles(idxs, boxes, classIDs, vehicle_count, previous_frame_detectio
 			# the ID of the detection is not present in the vehicles
 			if (LABELS[classIDs[i]] in list_of_vehicles):
 				current_detections[(centerX, centerY)] = vehicle_count 
-				if (not boxInPreviousFrames(previous_frame_detections, (centerX, centerY, w, h), current_detections)):
+				#
+				if not boxInPreviousFrames(previous_frame_detections, (centerX, centerY, w, h), current_detections):
 					vehicle_count += 1
 					# vehicle_crossed_line_flag += True
 				# else: #ID assigning
@@ -188,140 +192,190 @@ ln = [ln[i - 1] for i in net.getUnconnectedOutLayers()]
 # best = video.getbest(preftype="mp4")
 # videoStream = cv2.VideoCapture(best.url)
 
-
-videoStream = cv2.VideoCapture(inputVideoPath)
-fvs = FileVideoStream(inputVideoPath).start()
-fps = FPS().start()
-time.sleep(1.0)
-video_width = int(videoStream.get(cv2.CAP_PROP_FRAME_WIDTH))
-video_height = int(videoStream.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
-# Specifying coordinates for a default line 
-x1_line = 0
-y1_line = video_height//2
-x2_line = video_width
-y2_line = video_height//2
-
-#Initialization
-previous_frame_detections = [{(0,0):0} for i in range(FRAMES_BEFORE_CURRENT)]
 # previous_frame_detections = [spatial.KDTree([(0,0)])]*FRAMES_BEFORE_CURRENT # Initializing all trees
-num_frames, vehicle_count = 0, 0
-writer = initializeVideoWriter(video_width, video_height, videoStream)
-start_time = int(time.time())
+
+class TrackCount:
+	_instance = None
+
+	def __init__(self):
+		self.vehicle_lane_count = multiprocessing.Manager().list([0,0,0,0])
+		print(self.vehicle_lane_count)
+
+	def __new__(self):
+		if self._instance is None:
+			self._instance = super().__new__(self)
+		return self._instance
+
+	def update_count(self,lane,value):
+		self.vehicle_lane_count[lane] = value
+
+	def reset_count(self,lane):
+		self.vehicle_lane_count[lane] = 0
+
+	def get_count(self,lane):
+		return self.vehicle_lane_count[lane]
+		
 # loop over frames from the video file stream
-try:
-# while True:
-	while fvs.more():
-		print("================NEW FRAME================")
-		num_frames+= 1
-		print("FRAME:\t", num_frames)
-		# Initialization for each iteration
-		boxes, confidences, classIDs = [], [], [] 
-		vehicle_crossed_line_flag = False 
 
-		#Calculating fps each second
-		start_time, num_frames = displayFPS(start_time, num_frames)
-		# read the next frame from the file
-		(grabbed, framesaa) = videoStream.read()
-		frame = ''
-		for i in range(2):
-			if(fvs.more()):
-				frame = fvs.read()
-			else:
+def yolo_detection_counter(vehicle_count_instance,lane,inputVideoPath):
+	videoStream = cv2.VideoCapture(inputVideoPath)
+	fps = FPS().start()
+	time.sleep(1.0)
+	video_width = int(videoStream.get(cv2.CAP_PROP_FRAME_WIDTH))
+	video_height = int(videoStream.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+	# Specifying coordinates for a default line 
+	x1_line = 0
+	y1_line = video_height//2
+	x2_line = video_width
+	y2_line = video_height//2
+	#Initialization
+	previous_frame_detections = [{(0,0):0} for i in range(FRAMES_BEFORE_CURRENT)]
+	fvs = FileVideoStream(inputVideoPath).start()
+	writer = initializeVideoWriter(video_width, video_height, videoStream)
+	start_time = int(time.time())
+	num_frames = 0
+	try:
+	# while True:
+		while fvs.more():
+			# print("================NEW FRAME================")
+			# num_frames+= 1
+			# print("FRAME:\t", num_frames)
+			# Initialization for each iteration
+			boxes, confidences, classIDs = [], [], [] 
+			vehicle_crossed_line_flag = False 
+
+			#Calculating fps each second
+			start_time, num_frames = displayFPS(start_time, num_frames)
+			# read the next frame from the file
+			(grabbed, framesaa) = videoStream.read()
+			frame = ''
+			for i in range(2):
+				if(fvs.more()):
+					frame = fvs.read()
+				else:
+					pass
+			#frame = fvs.read()
+			# if the frame was not grabbed, then we have reached the end of the stream
+			if not grabbed:
 				break
-		# frame = fvs.read()
-		# if the frame was not grabbed, then we have reached the end of the stream
-		if not grabbed:
-			break
+			
 
-		# construct a blob from the input frame and then perform a forward
-		# pass of the YOLO object detector, giving us our bounding boxes
-		# and associated probabilities
-		blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (inputWidth, inputHeight),
-			swapRB=True, crop=False)
-		net.setInput(blob)
-		start = time.time()
-		layerOutputs = net.forward(ln)
-		end = time.time()
+			# construct a blob from the input frame and then perform a forward
+			# pass of the YOLO object detector, giving us our bounding boxes
+			# and associated probabilities
+			blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (inputWidth, inputHeight),
+				swapRB=True, crop=False)
+			net.setInput(blob)
+			start = time.time()
+			layerOutputs = net.forward(ln)
+			end = time.time()
 
-		# loop over each of the layer outputs
-		for output in layerOutputs:
-			# loop over each of the detections
-			for i, detection in enumerate(output):
-				# extract the class ID and confidence (i.e., probability)
-				# of the current object detection
-				scores = detection[5:]
-				classID = np.argmax(scores)
-				confidence = scores[classID]
+			# loop over each of the layer outputs
+			for output in layerOutputs:
+				# loop over each of the detections
+				for i, detection in enumerate(output):
+					# extract the class ID and confidence (i.e., probability)
+					# of the current object detection
+					scores = detection[5:]
+					classID = np.argmax(scores)
+					confidence = scores[classID]
 
-				# filter out weak predictions by ensuring the detected
-				# probability is greater than the minimum probability
-				if confidence > preDefinedConfidence:
-					# scale the bounding box coordinates back relative to
-					# the size of the image, keeping in mind that YOLO
-					# actually returns the center (x, y)-coordinates of
-					# the bounding box followed by the boxes' width and
-					# height
-					box = detection[0:4] * np.array([video_width, video_height, video_width, video_height])
-					(centerX, centerY, width, height) = box.astype("int")
+					# filter out weak predictions by ensuring the detected
+					# probability is greater than the minimum probability
+					if confidence > preDefinedConfidence:
+						# scale the bounding box coordinates back relative to
+						# the size of the image, keeping in mind that YOLO
+						# actually returns the center (x, y)-coordinates of
+						# the bounding box followed by the boxes' width and
+						# height
+						box = detection[0:4] * np.array([video_width, video_height, video_width, video_height])
+						(centerX, centerY, width, height) = box.astype("int")
 
-					# use the center (x, y)-coordinates to derive the top
-					# and and left corner of the bounding box
-					x = int(centerX - (width / 2))
-					y = int(centerY - (height / 2))
-								
-					#Printing the info of the detection
-					#print('\nName:\t', LABELS[classID],
-						#'\t|\tBOX:\t', x,y)
+						# use the center (x, y)-coordinates to derive the top
+						# and and left corner of the bounding box
+						x = int(centerX - (width / 2))
+						y = int(centerY - (height / 2))
+									
+						#Printing the info of the detection
+						#print('\nName:\t', LABELS[classID],
+							#'\t|\tBOX:\t', x,y)
 
-					# update our list of bounding box coordinates,
-					# confidences, and class IDs
-					boxes.append([x, y, int(width), int(height)])
-					confidences.append(float(confidence))
-					classIDs.append(classID)
+						# update our list of bounding box coordinates,
+						# confidences, and class IDs
+						boxes.append([x, y, int(width), int(height)])
+						confidences.append(float(confidence))
+						classIDs.append(classID)
 
-		# # Changing line color to green if a vehicle in the frame has crossed the line 
-		# if vehicle_crossed_line_flag:
-		# 	cv2.line(frame, (x1_line, y1_line), (x2_line, y2_line), (0, 0xFF, 0), 2)
-		# # Changing line color to red if a vehicle in the frame has not crossed the line 
-		# else:
-		# 	cv2.line(frame, (x1_line, y1_line), (x2_line, y2_line), (0, 0, 0xFF), 2)
+			# # Changing line color to green if a vehicle in the frame has crossed the line 
+			# if vehicle_crossed_line_flag:
+			# 	cv2.line(frame, (x1_line, y1_line), (x2_line, y2_line), (0, 0xFF, 0), 2)
+			# # Changing line color to red if a vehicle in the frame has not crossed the line 
+			# else:
+			# 	cv2.line(frame, (x1_line, y1_line), (x2_line, y2_line), (0, 0, 0xFF), 2)
 
-		# apply non-maxima suppression to suppress weak, overlapping
-		# bounding boxes
-		idxs = cv2.dnn.NMSBoxes(boxes, confidences, preDefinedConfidence,
-			preDefinedThreshold)
+			# apply non-maxima suppression to suppress weak, overlapping
+			# bounding boxes
+			idxs = cv2.dnn.NMSBoxes(boxes, confidences, preDefinedConfidence,
+				preDefinedThreshold)
 
-		# Draw detection box 
-		drawDetectionBoxes(idxs, boxes, classIDs, confidences, frame)
+			# Draw detection box 
+			drawDetectionBoxes(idxs, boxes, classIDs, confidences, frame)
 
-		vehicle_count, current_detections = count_vehicles(idxs, boxes, classIDs, vehicle_count, previous_frame_detections, frame)
+			vehicle_count, current_detections = count_vehicles(idxs, boxes, classIDs, vehicle_count_instance.get_count(lane), previous_frame_detections, frame)
 
-		# Display Vehicle Count if a vehicle has passed the line 
-		displayVehicleCount(frame, vehicle_count)
-		cv2.putText(frame, "Queue Size: {}".format(fvs.Q.qsize()),
-			(10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-		# write the output frame to disk
-		writer.write(frame)
+			# Display Vehicle Count if a vehicle has passed the line 
+			displayVehicleCount(frame, vehicle_count,lane)
+			vehicle_count_instance.update_count(lane,vehicle_count)
+			# cv2.putText(frame, "Queue Size: {}".format(fvs.Q.qsize()),
+			# 	(30, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 1)
+			# write the output frame to disk
+			writer.write(frame)
+			cv2.imshow('Frame',cv2.resize(frame,(1200,800)))
+			if cv2.waitKey(1) & 0xFF == ord('q'):
+				break	
+			fps.update()
+			# Updating with the current frame detections
+			previous_frame_detections.pop(0) #Removing the first frame from the list
+			# previous_frame_detections.append(spatial.KDTree(current_detections))
+			previous_frame_detections.append(current_detections)
+			# if fvs.Q.qsize() <10:
+			# 	fvs.stop()
+			# 	fvs = FileVideoStream(inputVideoPath).start()
+				#videoStream = cv2.VideoCapture(inputVideoPath)
+				#writer = initializeVideoWriter(video_width, video_height, videoStream)
+	except Exception as error:
+		print(error)
+	finally:
+		fps.stop()
+		print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
+		print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
+		# do a bit of cleanup
+		cv2.destroyAllWindows()
+		fvs.stop()
+		# release the file pointers
+		print("[INFO] cleaning up...")
+		writer.release()
+		videoStream.release()
+		return
 
-		cv2.imshow('Frame', frame)
-		if cv2.waitKey(1) & 0xFF == ord('q'):
-			break	
-		fps.update()
-		# Updating with the current frame detections
-		previous_frame_detections.pop(0) #Removing the first frame from the list
-		# previous_frame_detections.append(spatial.KDTree(current_detections))
-		previous_frame_detections.append(current_detections)
-except Exception as error:
-	print(error)
-finally:
-	fps.stop()
-	print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
-	print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
-	# do a bit of cleanup
-	cv2.destroyAllWindows()
-	fvs.stop()
-	# release the file pointers
-	print("[INFO] cleaning up...")
-	writer.release()
-	videoStream.release()
+if __name__ == '__main__':
+	vehicle_count_instance = TrackCount()
+	
+	process1 = multiprocessing.Process(target=yolo_detection_counter, args=(vehicle_count_instance,0,inputVideoPathList[0]))
+	process3 = multiprocessing.Process(target=yolo_detection_counter, args=(vehicle_count_instance,1,inputVideoPathList[1]))
+	process4 = multiprocessing.Process(target=yolo_detection_counter, args=(vehicle_count_instance,2,inputVideoPathList[2]))
+	process5 = multiprocessing.Process(target=yolo_detection_counter, args=(vehicle_count_instance,3,inputVideoPathList[3]))
+	process2 = multiprocessing.Process(target=traffic_control, args=(vehicle_count_instance,))
+	
+	process1.start()
+	process3.start()
+	process4.start()
+	process5.start()
+	process2.start()
+
+	process1.join()
+	process3.join()
+	process4.join()
+	process5.join()
+	process2.join()
