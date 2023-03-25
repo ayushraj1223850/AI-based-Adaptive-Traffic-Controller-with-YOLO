@@ -9,7 +9,7 @@ Object detection occurs at 4 lanes in real time the Main frame Central hub runs 
 
 ## Adaptive Traffic Control Sytem Network
  <p align="center">
-  <img src="https://github.com/karthikrao117/Adaptive-Traffic-Controller-with-YOLO-Object-Detection/blob/master/example_gif/ATCS_system.jpg">
+  <img src="https://github.com/karthikrao117/Adaptive-Traffic-Controller-with-YOLO-Object-Detection/blob/main/example_gif/ATCS_system.jpg">
 </p>
 
 This project is enhancement of https://github.com/guptavasu1213/Yolo-Vehicle-Counter which was only used for counting vehicles.  
@@ -26,12 +26,12 @@ This project is enhancement of https://github.com/guptavasu1213/Yolo-Vehicle-Cou
 
 ## Yolo V7 Performance
  <p align="center">
-  <img src="https://github.com/karthikrao117/Adaptive-Traffic-Controller-with-YOLO-Object-Detection/blob/master/example_gif/yolov7.png">
+  <img src="https://github.com/karthikrao117/Adaptive-Traffic-Controller-with-YOLO-Object-Detection/blob/main/example_gif/yolov7.png">
 </p>
 
 ## Working 
 <p align="center">
-  <img src="https://github.com/karthikrao117/Adaptive-Traffic-Controller-with-YOLO-Object-Detection/blob/master/example_gif/highwayVideoExample.gif">
+  <img src="https://github.com/karthikrao117/Adaptive-Traffic-Controller-with-YOLO-Object-Detection/blob/main/example_gif/highwayVideoExample.gif">
 </p>
 As shown in the image above, when the vehicles in the frame are detected, they are counted. After getting detected once, the vehicles get tracked and do not get re-counted by the algorithm. 
 
