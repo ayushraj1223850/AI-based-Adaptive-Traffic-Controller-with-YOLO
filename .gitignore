@@ -1,5 +1,4 @@
 *.mkv
 *.mov
 *.avi
-*.weights
 __pycache__/**
