@@ -91,6 +91,7 @@ https://www.pyimagesearch.com/2020/02/03/how-to-use-opencvs-dnn-module-with-nvid
 * `--inputall` or `-iall` argument requires the path to the input videos 4 video path separated by space 
 * `--input` or `-i` argument requires the path to the input video
 * `--output` or `-o` argument requires the path to the output video
+* `--outputall` or `-oall` argument requires the path to the output video 4 output files separated by space
 * `--yolo` or `-y` argument requires the path to the folder where the configuration file, weights and the coco.names file is stored
 * `--confidence` or `-c` is an optional argument which requires a float number between 0 to 1 denoting the minimum confidence of detections. By default, the confidence is 0.5 (50%).
 * `--threshold` or `-t` is an optional argument which requires a float number between 0 to 1 denoting the threshold when applying non-maxima suppression. By default, the threshold is 0.3 (30%).
@@ -101,7 +102,7 @@ python yolo_video.py --inputall <input video paths> --output <output video path>
 Examples: 
 * Running with defaults
 ```
-python yolo_video.py --inputall file1.mp4 file2.mp4 file3.mp4 file4.mp4  --output outfile_name.avi --yolo yolo-coco
+python yolo_video.py --inputall file1.mp4 file2.mp4 file3.mp4 file4.mp4  --outputall outfile1.avi outfile2.avi outfile3.avi outfile3.avi --yolo yolo-coco
 ```
 * Specifying confidence
 ```

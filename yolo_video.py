@@ -23,7 +23,7 @@ inputWidth, inputHeight = 416, 416
 
 #Parse command line arguments and extract the values required
 LABELS, weightsPath, configPath, inputVideoPath, outputVideoPath,\
-	preDefinedConfidence, preDefinedThreshold, USE_GPU, inputVideoPathList= parseCommandLineArguments()
+	preDefinedConfidence, preDefinedThreshold, USE_GPU, inputVideoPathList, outputVideoPathAll= parseCommandLineArguments()
 
 # Initialize a list of colors to represent each possible class label
 np.random.seed(42)
@@ -95,7 +95,7 @@ def drawDetectionBoxes(idxs, boxes, classIDs, confidences, frame):
 # of fps, width and height as the source video 
 # PARAMETERS: Width of the source video, Height of the source video, the video stream
 # RETURN: The initialized video writer
-def initializeVideoWriter(video_width, video_height, videoStream):
+def initializeVideoWriter(video_width, video_height, videoStream,outputVideoPath):
 	# Getting the fps of the source video
 	sourceVideofps = videoStream.get(cv2.CAP_PROP_FPS)
 	# initialize our video writer
@@ -217,7 +217,7 @@ class TrackCount:
 		
 # loop over frames from the video file stream
 
-def yolo_detection_counter(vehicle_count_instance,lane,inputVideoPath):
+def yolo_detection_counter(vehicle_count_instance,lane,inputVideoPath,outputVideoPath):
 	videoStream = cv2.VideoCapture(inputVideoPath)
 	fps = FPS().start()
 	time.sleep(1.0)
@@ -232,7 +232,7 @@ def yolo_detection_counter(vehicle_count_instance,lane,inputVideoPath):
 	#Initialization
 	previous_frame_detections = [{(0,0):0} for i in range(FRAMES_BEFORE_CURRENT)]
 	fvs = FileVideoStream(inputVideoPath).start()
-	writer = initializeVideoWriter(video_width, video_height, videoStream)
+	writer = initializeVideoWriter(video_width, video_height, videoStream,outputVideoPath)
 	start_time = int(time.time())
 	num_frames = 0
 	try:
@@ -362,10 +362,10 @@ def yolo_detection_counter(vehicle_count_instance,lane,inputVideoPath):
 if __name__ == '__main__':
 	vehicle_count_instance = TrackCount()
 	
-	process1 = multiprocessing.Process(target=yolo_detection_counter, args=(vehicle_count_instance,0,inputVideoPathList[0]))
-	process3 = multiprocessing.Process(target=yolo_detection_counter, args=(vehicle_count_instance,1,inputVideoPathList[1]))
-	process4 = multiprocessing.Process(target=yolo_detection_counter, args=(vehicle_count_instance,2,inputVideoPathList[2]))
-	process5 = multiprocessing.Process(target=yolo_detection_counter, args=(vehicle_count_instance,3,inputVideoPathList[3]))
+	process1 = multiprocessing.Process(target=yolo_detection_counter, args=(vehicle_count_instance,0,inputVideoPathList[0],outputVideoPathAll[0]))
+	process3 = multiprocessing.Process(target=yolo_detection_counter, args=(vehicle_count_instance,1,inputVideoPathList[1],outputVideoPathAll[1]))
+	process4 = multiprocessing.Process(target=yolo_detection_counter, args=(vehicle_count_instance,2,inputVideoPathList[2],outputVideoPathAll[2]))
+	process5 = multiprocessing.Process(target=yolo_detection_counter, args=(vehicle_count_instance,3,inputVideoPathList[3],outputVideoPathAll[3]))
 	process2 = multiprocessing.Process(target=traffic_control, args=(vehicle_count_instance,))
 	
 	process1.start()
