@@ -345,7 +345,7 @@ def yolo_detection_counter(vehicle_count_instance,lane,inputVideoPath,outputVide
 				#videoStream = cv2.VideoCapture(inputVideoPath)
 				#writer = initializeVideoWriter(video_width, video_height, videoStream)
 	except Exception as error:
-		print(error)
+		pass
 	finally:
 		fps.stop()
 		print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))

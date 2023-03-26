@@ -22,7 +22,7 @@ def  traffic_control(Singleton):
             print(f"Green Lane Order :: {green_lane_order}")
             print()
         
-
+            
             while(timeDurationForLane > 0):
                 print(f"Time Left : {timeDurationForLane} seconds")
                 if timeDurationForLane <= 5:
@@ -35,10 +35,9 @@ def  traffic_control(Singleton):
             print()
             if(timeDurationForLane <= 0):
                 print(f"Orange light at lane {green_lane_order[0]} for 3 second")
+                VEHICLE_COUNT_FOR_LANES[green_lane_order[0]-1]= 0
                 print(f"Vehicles count for Lane {green_lane_order[1]}, Lane {green_lane_order[2]}, and Lane {green_lane_order[3]} Respectively")
                 for i in range(3):
-                    print("Index of vehicle count ",green_lane_order[i+1]-1)
-                    print("Index value",Singleton.get_count(green_lane_order[i+1]-1))
                     VEHICLE_COUNT_FOR_LANES[green_lane_order[i+1]-1] = Singleton.get_count(green_lane_order[i+1]-1)
                     Singleton.reset_count(green_lane_order[i+1]-1)
                 # Singleton.reset_count() 
@@ -53,7 +52,11 @@ def  traffic_control(Singleton):
 
             #changing green lane order based on vehicle count
             green_lane_order.append(green_lane_order.pop(0))
-        
+            while VEHICLE_COUNT_FOR_LANES[green_lane_order[0]-1] == 0:
+                green_lane_order.append(green_lane_order.pop(0))
+                COUNTER+=1
+                if COUNTER>=4:
+                    break
             #find lane with max vehicles from remaining red lights
             max_vehicle_lane=green_lane_order[0] 
             
@@ -74,7 +77,7 @@ def  traffic_control(Singleton):
                 green_lane_order=[1,2,3,4]
                 timeDurationForLane=min(AVERAGE_WAITING_TIME_FOR_ONE_VEHICLE*VEHICLE_COUNT_FOR_LANES[0], MAX_GREEN_TIME)
     except Exception as Error:
-        pass
+        print(Error)
     finally:
         print()
         print(f"****************ADAPTIVE TRAFFIC CONTROL SYSTEM****************")
