@@ -39,7 +39,7 @@ def displayVehicleCount(frame, vehicle_count,lane):
 		(20, 20), #Position
 		cv2.FONT_HERSHEY_SIMPLEX, #Font
 		0.75, #Size
-		(0, 0, 0), #Color
+		(0, 255, 0), #Color
 		2, #Thickness
 		cv2.FONT_HERSHEY_COMPLEX_SMALL,
 		)
