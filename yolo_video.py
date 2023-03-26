@@ -1,16 +1,16 @@
 # import the necessary packages
 import numpy as np
-import imutils
+# import imutils
 from imutils.video import FileVideoStream
 from imutils.video import FPS
 import time
 from scipy import spatial
 import cv2
 from input_retrieval import *
-import pafy
-from threading import Thread
-import sys
-from queue import Queue
+# import pafy
+# from threading import Thread
+# import sys
+# from queue import Queue
 import multiprocessing
 
 from atcs import traffic_control
